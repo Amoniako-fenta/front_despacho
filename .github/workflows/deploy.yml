@@ -1,0 +1,52 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: frontend
+  ECS_CLUSTER: cluster-proyecto-semestral
+  ECS_SERVICE: frontend-service-htroqxhd
+  ECS_TASK_DEFINITION: frontend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image
+        run: docker build -t frontend .
+
+      - name: Tag Docker Image
+        run: |
+          docker tag frontend:latest \
+          108327187275.dkr.ecr.us-east-1.amazonaws.com/frontend:latest
+
+      - name: Push Docker Image
+        run: |
+          docker push \
+          108327187275.dkr.ecr.us-east-1.amazonaws.com/frontend:latest
+
+      - name: Force ECS Deployment
+        run: |
+          aws ecs update-service \
+            --cluster cluster-proyecto-semestral \
+            --service frontend-service-htroqxhd \
+            --force-new-deployment
