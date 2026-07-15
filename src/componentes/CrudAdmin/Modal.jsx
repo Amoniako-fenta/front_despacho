@@ -1,29 +1,34 @@
-import React from "react";
+import PropTypes from "prop-types";
 
 export const Modal = ({ open, onClose, children }) => {
+  if (!open) {
+    return null;
+  }
+
   return (
-    <div
-      className={`fixed inset-0 z-10 flex justify-center items-center ${
-        open ? "visible bg-black/50 " : "invisible"
-      }`}
-    >
-      <div
-        onClick={(e) => {
-          e.stopPropagation;
-        }}
-        className={`flex flex-col items-end bg-white  transition-all rounded-lg ${
-          open ? "scale-90 opacity-100" : "scale-100 opacity-0"
-        }`}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-xl">
         <button
           type="button"
           onClick={onClose}
-          className="z-20 -mb-6 fill-emerald-500 hover:fill-emerald-600  font-bold hover:text-4xl text-3xl bg-teal-600 text-white transition-all w-14 h-14 "
+          className="absolute top-4 right-4 text-2xl font-bold text-gray-600 hover:text-gray-900"
+          aria-label="Cerrar modal"
         >
-          X
+          ×
         </button>
-        {children}
+
+        <div className="p-6">{children}</div>
       </div>
     </div>
   );
+};
+
+Modal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  children: PropTypes.node,
+};
+
+Modal.defaultProps = {
+  children: null,
 };

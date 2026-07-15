@@ -1,108 +1,180 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
-import { Modal } from "./Modal";
+
+import { API_DESPACHOS_URL } from "../../config/api";
 import { FormCierreDespacho } from "./FormCierreDespacho";
+import { Modal } from "./Modal";
 
 export const TableDespachos = () => {
   const [despachos, setDespachos] = useState([]);
-
-  const despacho = async () => {
-    await axios
-      .get("http://192.168.3.20/api/v1/despachos", {
-        headers:{
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-        }
-      })
-      .then((response) => {
-        console.log(response.data);
-        setDespachos(response.data);
-      });
-  };
-  // Llamada a la función para obtener los datos cuando el componente se monta
-  useEffect(() => {
-    despacho();
-  }, []);
-
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
   const [openModal, setOpenModal] = useState(false);
   const [despachoSeleccionado, setDespachoSeleccionado] = useState(null);
+
+  const cargarDespachos = async () => {
+    setCargando(true);
+    setError("");
+
+    try {
+      const response = await axios.get(API_DESPACHOS_URL, {
+        headers: {
+          Accept: "application/json",
+        },
+        timeout: 10000,
+      });
+
+      const despachosRecibidos = Array.isArray(response.data)
+        ? response.data
+        : [];
+
+      console.log("Despachos recibidos:", despachosRecibidos);
+      setDespachos(despachosRecibidos);
+    } catch (errorSolicitud) {
+      console.error("Error al obtener los despachos:", errorSolicitud);
+
+      if (errorSolicitud.code === "ECONNABORTED") {
+        setError("El backend de despachos tardó demasiado en responder.");
+      } else if (errorSolicitud.response) {
+        setError(
+          `El backend respondió con el código ${errorSolicitud.response.status}.`
+        );
+      } else {
+        setError(
+          "No fue posible conectar con el backend de despachos. Revisa la IP, el puerto, CORS y el Security Group."
+        );
+      }
+
+      setDespachos([]);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarDespachos();
+  }, []);
 
   const handleAbrirModal = (despacho) => {
     setDespachoSeleccionado(despacho);
     setOpenModal(true);
   };
 
+  const handleCerrarModal = () => {
+    setOpenModal(false);
+    setDespachoSeleccionado(null);
+  };
+
+  const handleDespachoActualizado = async () => {
+    handleCerrarModal();
+    await cargarDespachos();
+  };
+
   return (
     <>
-      <section className="grid text-center grid-cols-12 mb-8">
+      <section className="grid grid-cols-12 mb-8 text-center">
         <div className="col-span-12 flex justify-center">
-          <div className="col-span-10 p-2 bg-white border border-gray-200 rounded-lg shadow dark:bg-white h-full overflow-hidden">
-            <table className="table-fixed">
-              <thead>
-                <tr className="py-10">
-                  <th className="pr-10">Orden de despacho</th>
-                  <th className="pr-10">Orden de compra</th>
-                  <th className="pr-10">Dirección de entrega</th>
-                  <th className="pr-10">Fecha despacho</th>
-                  <th className="pr-10">Patente Camión</th>
-                  <th className="pr-10">Entregado</th>
-                  <th className="pr-10">Intentos de entrega</th>
-                </tr>
-              </thead>
-              <tbody>
-                {despachos
-               
-                .map((despacho) => (
-                  <tr key={despacho.idDespacho}>
-                    <td className="pr-10 py-10 items-center">{despacho.idDespacho}</td>
-                    <td className="pr-10 py-10  items-center">
-                      {despacho.idCompra}
-                    </td>
-                    <td className="pr-10 py-10  items-center">
-                      {despacho.direccionCompra}
-                    </td>
-                    <td className="pr-10 py-10  items-center">
-                      {despacho.fechaDespacho}
-                    </td>
-                    <td className="pr-10 py-10  items-center">
-                      {despacho.patenteCamion}
-                    </td>
-                    <td className="pr-10 py-10  items-center">
-                      {despacho.entregado
-                        ? "Despacho entregado"
-                        : "Despacho pendiente"}
-                    </td>
-                    <td className="pr-10 py-10  items-center">
-                      {despacho.intento}
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => handleAbrirModal(despacho)}
-                        className="py-1 bg-orange-200 px-8 rounded-xl shadow-md hover:bg-orange-300/70 transition-all duration-300 "
-                      >
-                        Cerrar despacho
-                      </button>
-                    </td>
+          <div className="w-full max-w-7xl p-4 bg-white border border-gray-200 rounded-lg shadow overflow-x-auto">
+            {cargando && (
+              <p className="py-8 text-gray-600">
+                Cargando despachos...
+              </p>
+            )}
+
+            {!cargando && error && (
+              <div className="py-8">
+                <p className="mb-4 font-semibold text-red-600">{error}</p>
+
+                <button
+                  type="button"
+                  onClick={cargarDespachos}
+                  className="px-6 py-2 text-white bg-teal-600 rounded-lg hover:bg-teal-700"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+
+            {!cargando && !error && despachos.length === 0 && (
+              <p className="py-8 text-gray-600">
+                No existen despachos registrados.
+              </p>
+            )}
+
+            {!cargando && !error && despachos.length > 0 && (
+              <table className="w-full table-auto">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-3">Orden de despacho</th>
+                    <th className="px-3 py-3">Orden de compra</th>
+                    <th className="px-3 py-3">Dirección</th>
+                    <th className="px-3 py-3">Fecha</th>
+                    <th className="px-3 py-3">Patente</th>
+                    <th className="px-3 py-3">Estado</th>
+                    <th className="px-3 py-3">Intentos</th>
+                    <th className="px-3 py-3">Acción</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {despachos.map((despacho) => (
+                    <tr
+                      key={despacho.idDespacho}
+                      className="border-t border-gray-200"
+                    >
+                      <td className="px-3 py-6">
+                        {despacho.idDespacho}
+                      </td>
+
+                      <td className="px-3 py-6">
+                        {despacho.idCompra}
+                      </td>
+
+                      <td className="px-3 py-6">
+                        {despacho.direccionCompra}
+                      </td>
+
+                      <td className="px-3 py-6">
+                        {despacho.fechaDespacho}
+                      </td>
+
+                      <td className="px-3 py-6">
+                        {despacho.patenteCamion}
+                      </td>
+
+                      <td className="px-3 py-6">
+                        {despacho.despachado
+                          ? "Despacho entregado"
+                          : "Despacho pendiente"}
+                      </td>
+
+                      <td className="px-3 py-6">
+                        {despacho.intento}
+                      </td>
+
+                      <td className="px-3 py-6">
+                        <button
+                          type="button"
+                          onClick={() => handleAbrirModal(despacho)}
+                          className="px-8 py-2 bg-orange-200 rounded-xl shadow-md hover:bg-orange-300/70"
+                        >
+                          Cerrar despacho
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </section>
-      <Modal
-        onClose={() => {
-          setOpenModal(false);
-        }}
-        open={openModal}
-      >
+
+      <Modal open={openModal} onClose={handleCerrarModal}>
         {despachoSeleccionado && (
           <FormCierreDespacho
             despacho={despachoSeleccionado}
-            onClose={() => {
-              //onclose es un prop que pasa funciones al modal con el form abierto, por ende al cerrarse, se ejecutan esas 2 funciones
-              setOpenModal(false), despacho();
-            }}
+            onClose={handleDespachoActualizado}
           />
         )}
       </Modal>

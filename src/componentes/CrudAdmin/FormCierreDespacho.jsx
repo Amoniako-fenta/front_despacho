@@ -1,6 +1,8 @@
 import { useForm } from "react-hook-form";
 import Swal from "sweetalert2";
 import axios from "axios";
+import PropTypes from "prop-types";
+import { API_DESPACHOS_URL } from "../../config/api";
 
 export const FormCierreDespacho = ({ despacho, onClose }) => {
   const { register, handleSubmit } = useForm();
@@ -16,7 +18,7 @@ export const FormCierreDespacho = ({ despacho, onClose }) => {
 
     try {
       await axios.put(
-        `http://192.168.320/api/v1/despachos/${despacho.idDespacho}`,
+        `${API_DESPACHOS_URL}/${despacho.idDespacho}`,
         jsonData,
         {
           headers:{
@@ -132,4 +134,27 @@ export const FormCierreDespacho = ({ despacho, onClose }) => {
       </form>
     </>
   );
+};
+
+FormCierreDespacho.propTypes = {
+  despacho: PropTypes.shape({
+    idDespacho: PropTypes.oneOfType([
+      PropTypes.number,
+      PropTypes.string,
+    ]).isRequired,
+    fechaDespacho: PropTypes.string,
+    patenteCamion: PropTypes.string,
+    intento: PropTypes.number,
+    despachado: PropTypes.bool,
+    idCompra: PropTypes.oneOfType([
+      PropTypes.number,
+      PropTypes.string,
+    ]),
+    direccionCompra: PropTypes.string,
+    valorCompra: PropTypes.oneOfType([
+      PropTypes.number,
+      PropTypes.string,
+    ]),
+  }).isRequired,
+  onClose: PropTypes.func.isRequired,
 };

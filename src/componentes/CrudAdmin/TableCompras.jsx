@@ -1,102 +1,165 @@
-import { useState, useEffect } from "react";
-import { Modal } from "./Modal";
-import { FormDespacho } from "./FormDespacho";
+import { useEffect, useState } from "react";
 import axios from "axios";
+
+import { API_VENTAS_URL } from "../../config/api";
+import { FormDespacho } from "./FormDespacho";
+import { Modal } from "./Modal";
 
 export const TableCompras = () => {
   const [ventas, setVentas] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
 
-  const compras = async () => {
-    // Se reemplaza la IP local harcodeada por la variable de entorno del backend de ventas
-    await axios.get(`${import.meta.env.VITE_API_VENTAS}/api/v1/ventas`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+  const obtenerCompras = async () => {
+    setCargando(true);
+    setError("");
+
+    try {
+      const response = await axios.get(API_VENTAS_URL, {
+        headers: {
+          Accept: "application/json",
+        },
+        timeout: 10000,
+      });
+
+      const ventasRecibidas = Array.isArray(response.data)
+        ? response.data
+        : [];
+
+      console.log("Ventas recibidas:", ventasRecibidas);
+      setVentas(ventasRecibidas);
+    } catch (errorSolicitud) {
+      console.error("Error al obtener las ventas:", errorSolicitud);
+
+      if (errorSolicitud.code === "ECONNABORTED") {
+        setError("El servidor de ventas tardó demasiado en responder.");
+      } else if (errorSolicitud.response) {
+        setError(
+          `El servidor respondió con error ${errorSolicitud.response.status}.`
+        );
+      } else {
+        setError(
+          "No fue posible conectar con el backend de ventas. Revisa la URL, el puerto y el Security Group."
+        );
       }
-    }).then((response) => {
-      console.log(response.data);
-      setVentas(response.data);
-    }).catch((error) => {
-      console.error("Error al obtener las ventas de AWS:", error);
-    });
+
+      setVentas([]);
+    } finally {
+      setCargando(false);
+    }
   };
 
-  // Llamada a la función para obtener los datos cuando el componente se monta
   useEffect(() => {
-    compras();
+    obtenerCompras();
   }, []);
 
-  // state que controla el modal
-  const [openModal, setOpenModal] = useState(false);
-
-  // state que abre el modal junto con la data del id seleccionado
-  const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
   const handleAbrirModal = (venta) => {
     setVentaSeleccionada(venta);
     setOpenModal(true);
   };
 
+  const handleCerrarModal = () => {
+    setOpenModal(false);
+    setVentaSeleccionada(null);
+  };
+
+  const handleDespachoCreado = async () => {
+    handleCerrarModal();
+    await obtenerCompras();
+  };
+
+  const ventasPendientes = ventas.filter(
+    (venta) => !venta.despachoGenerado
+  );
+
   return (
     <>
-      <section className="grid text-center grid-cols-12 mb-8">
+      <section className="grid grid-cols-12 mb-8 text-center">
         <div className="col-span-12 flex justify-center">
-          <div className="col-span-10 p-2 bg-white border border-gray-200 rounded-lg shadow dark:bg-white h-full overflow-hidden">
-            <table className="table-fixed">
-              <thead>
-                <tr className="py-10">
-                  <th className="pr-10">Orden de compra</th>
-                  <th className="pr-10">direccion</th>
-                  <th className="pr-10">fecha de compra</th>
-                  <th className="pr-10">valor total</th>
-                  <th className="pr-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {ventas
-                  .filter((venta) => !venta.despachoGenerado)
-                  .map((venta) => (
-                    <tr key={venta.idVenta}>
-                      <td className="pr-10 py-10 items-center">
-                        {venta.idVenta}
-                      </td>
-                      <td className="pr-10 py-10  items-center">
+          <div className="w-full max-w-6xl p-4 bg-white border border-gray-200 rounded-lg shadow overflow-x-auto">
+            {cargando && (
+              <p className="py-8 text-gray-600">
+                Cargando órdenes de compra...
+              </p>
+            )}
+
+            {!cargando && error && (
+              <div className="py-8">
+                <p className="mb-4 text-red-600 font-semibold">{error}</p>
+
+                <button
+                  type="button"
+                  onClick={obtenerCompras}
+                  className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+
+            {!cargando && !error && ventasPendientes.length === 0 && (
+              <p className="py-8 text-gray-600">
+                No existen órdenes de compra pendientes de despacho.
+              </p>
+            )}
+
+            {!cargando && !error && ventasPendientes.length > 0 && (
+              <table className="w-full table-auto">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-3">Orden de compra</th>
+                    <th className="px-4 py-3">Dirección</th>
+                    <th className="px-4 py-3">Fecha de compra</th>
+                    <th className="px-4 py-3">Valor total</th>
+                    <th className="px-4 py-3">
+                      <span className="sr-only">Acciones</span>
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {ventasPendientes.map((venta) => (
+                    <tr
+                      key={venta.idVenta}
+                      className="border-t border-gray-200"
+                    >
+                      <td className="px-4 py-6">{venta.idVenta}</td>
+
+                      <td className="px-4 py-6">
                         {venta.direccionCompra}
                       </td>
-                      <td className="pr-10 py-10  items-center">
-                        {venta.fechaCompra}
+
+                      <td className="px-4 py-6">{venta.fechaCompra}</td>
+
+                      <td className="px-4 py-6">
+                        ${Number(venta.valorCompra ?? 0).toLocaleString("es-CL")}
                       </td>
-                      <td className="pr-10 py-10  items-center">
-                        ${venta.valorCompra}
-                      </td>
-                      <td>
+
+                      <td className="px-4 py-6">
                         <button
+                          type="button"
                           onClick={() => handleAbrirModal(venta)}
-                          className="py-1 bg-orange-200 px-8 rounded-xl shadow-md hover:bg-orange-300/70 transition-all duration-300 "
+                          className="px-8 py-2 bg-orange-200 rounded-xl shadow-md hover:bg-orange-300/70 transition-all duration-300"
                         >
-                          Generar Despacho
+                          Generar despacho
                         </button>
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </section>
-      <Modal
-        onClose={() => {
-          setOpenModal(false);
-        }}
-        open={openModal}
-      >
+
+      <Modal open={openModal} onClose={handleCerrarModal}>
         {ventaSeleccionada && (
           <FormDespacho
             venta={ventaSeleccionada}
-            onClose={() => {
-              // Al cerrarse el modal, se cierra la vista y se refresca la lista llamando a compras()
-              setOpenModal(false);
-              compras();
-            }}
+            onClose={handleDespachoCreado}
           />
         )}
       </Modal>
